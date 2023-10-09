@@ -24,8 +24,13 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import Autocomplete from "@mui/material/Autocomplete";
 import Pagination from "@mui/material/Pagination";
 import Fade from "@mui/material/Fade";
+import Grow from "@mui/material/Grow";
+import Zoom from "@mui/material/Zoom";
 
 import { TransitionGroup } from "react-transition-group";
+
+import Backdrop from "@mui/material/Backdrop";
+import CircularProgress from "@mui/material/CircularProgress";
 
 function Score({ title, value }) {
   return (
@@ -117,23 +122,24 @@ function App() {
   });
 
   const [searchResults, setSearchResults] = useState([]);
+  const [searchResultsNumber, setSearchResultsNumber] = useState(1);
+
   const [visibleResults, setVisibleResults] = useState([]);
 
   function handleSearchButtonClick() {
-    setSearchParamsChanged(false);
-
     setpaginationPage(1);
     setVisibleResults([...searchResults].splice(0, 10));
   }
-
   useEffect(() => {
     fetchData()
       .then((data) => {
         // let tmp_data = data.data.slice(0, 10);
-        let tmp_data = data.data.map((car, index) => {
+        let tmp_data = data.map((car, index) => {
           return { ...car, index: index };
         });
         setCarsData(tmp_data);
+        setSearchResults(tmp_data);
+        setSearchResultsNumber(Math.ceil(tmp_data.length / 10));
       })
       .catch((error) => {
         console.error("Error:", error);
@@ -161,13 +167,6 @@ function App() {
     setSearchParamsChanged(false);
     setVisibleResults([]);
   }
-
-  // useEffect(() => {
-  //   setVisibleResults(
-  //     [...searchResults].splice(paginationPage*10, 10)
-  //   );
-
-  // }, [paginationPage]);
 
   function populateDefaultAutocompleteOptions() {
     let countries = [];
@@ -209,6 +208,8 @@ function App() {
   }, [carsData]);
 
   function updateSearchResultsAutocompleteData() {
+    setSearchParamsChanged(true);
+
     let results = carsData;
 
     results = results.filter((car) => {
@@ -232,18 +233,47 @@ function App() {
         return false;
       }
     });
+    const formatedLabelsToColumnHeaders = {
+      DougScore: "dougscore",
+      "Total Daily Score": "totalDaily",
+      "Total Weekend Score": "totalWeekend",
+      Year: "year",
+      Styling: "styling",
+      Acceleration: "acceleration",
+      Handling: "handling",
+      "Fun Factor": "funFactor",
+      "Cool Factor": "coolFactor",
+      Features: "features",
+      Comfort: "comfort",
+      Quality: "quality",
+      Practicality: "practicality",
+      Value: "value",
+    };
 
-    console.log(results);
+    // More Filter 
+    if (searchParams.fieldToFilter != null) {
+      results = results.filter((car) => {
+        const tmpFieldToFilter =
+          formatedLabelsToColumnHeaders[searchParams.fieldToFilter];
 
-    // if (
-    //   searchParams.fieldToFilter != null &&
-    //   searchParams.filedToFilterFrom != "" &&
-    //   searchParams.filedToFilterTo != "" &&
-    //   searchParams.filedToFilterFrom >= car[searchParams.fieldToFilter] &&
-    //   searchParams.filedToFilterTo <= car[searchParams.fieldToFilter]
-    // ) {
-    //   results.push(car);
-    // }
+        if (car[tmpFieldToFilter] >= searchParams.filedToFilterFrom) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+
+      results = results.filter((car) => {
+        const tmpFieldToFilter =
+          formatedLabelsToColumnHeaders[searchParams.fieldToFilter];
+
+        if (car[tmpFieldToFilter] <= searchParams.filedToFilterTo) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+    }
 
     if (results.length == 0) {
       results = [...carsData];
@@ -266,6 +296,8 @@ function App() {
       }
     });
 
+    setSearchResultsNumber(Math.ceil(results.length / 10));
+
     setAutocompleteOptions({
       ...autocompleteOptions,
       country: countries.sort(),
@@ -275,11 +307,33 @@ function App() {
       fieldToFilter: defaultAutocompleteOptions.fieldToFilter,
     });
 
+    //Sorting
+    // results = results.sort((car1, car2) => {
+    //   const tmpFieldToSort =
+    //     formatedLabelsToColumnHeaders[searchParams.sort_by];
+
+    //   if (searchParams.sort_order == "Asc") {
+    //     return car1[tmpFieldToSort] > car2[tmpFieldToSort] ? 1 : -1;
+    //   }
+
+    //   if (searchParams.sort_order == "Desc") {
+    //     return car1[tmpFieldToSort] < car2[tmpFieldToSort] ? 1 : -1;
+    //   }
+    //   return 0;
+    // });
+
+    // results = results.sort((car1, car2) => {
+    //   const tmpFieldToSort =
+    //     formatedLabelsToColumnHeaders[searchParams.sort_by];
+
+    //     return car1[tmpFieldToSort] > car2[tmpFieldToSort] ? 1 : -1;
+
+    // });
+
     setSearchResults(results);
   }
 
   useEffect(() => {
-    setSearchParamsChanged(true);
     // if (searchParams.make == null) {
     //   setSearchParams({ ...searchParams, model: null });
     // }
@@ -307,8 +361,8 @@ function App() {
       </AppBar>
 
       <main>
-        <Container maxWidth="md">
-          <Box sx={{ p: 6, paddingTop: 4 }}>
+        <Container maxWidth="md" sx={{ mt: 6 }}>
+          <Box>
             <Typography
               variant="body1"
               align="center"
@@ -316,48 +370,63 @@ function App() {
               component="p"
             >
               This application pulls data from Doug's Google Sheet and gives you
-              the abbility to Filter & Sort and present it nicely. For more
+              the ability to Filter & Sort and presents it nicely. For more
               information on how the scores are evaluated, visit Doug's website
               at{" "}
               <Link
                 target="_blank"
                 rel="noreferrer"
                 sx={{ textDecoration: "none", color: "green" }}
-                href="dougdemuro.com"
+                href="https://www.dougdemuro.com"
               >
                 www.dougdemuro.com
               </Link>
             </Typography>
           </Box>
-
+        </Container>
+        <Container maxWidth="md" sx={{ mt: 6 }}>
           <Card
             sx={{
               height: "100%",
               display: "flex",
               flexDirection: "column",
               borderRadius: "15px",
+              position: "relative",
             }}
             variant="outlined"
           >
+            <Backdrop
+              sx={{
+                color: "green",
+                backgroundColor: "rgba(240, 255, 239, 0.1)",
+                backdropFilter: "blur(3px)",
+                zIndex: 3,
+                position: "absolute",
+              }}
+              open={carsData.length == 0}
+            >
+              <CircularProgress color="inherit" />
+            </Backdrop>
             <CardContent sx={{ flexGrow: 1 }}>
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="h6" marginBottom={1}>
                   Filter & Sort
                 </Typography>
-                {searchParamsChanged === true && (
-                  <Button
-                    size="small"
-                    disableRipple
-                    disableFocusRipple
-                    disableTouchRipple
-                    sx={{ color: "green" }}
-                    onClick={() => {
-                      handleClearAllFilters();
-                    }}
-                  >
-                    Clear all filters
-                  </Button>
-                )}
+                {searchParamsChanged === true &&
+                  visibleResults.length !== 0 && (
+                    <Button
+                      size="small"
+                      disableRipple
+                      disableFocusRipple
+                      disableTouchRipple
+                      sx={{ color: "green" }}
+                      onClick={() => {
+                        handleClearAllFilters();
+                      }}
+                    >
+                      Clear all filters
+                    </Button>
+                  )}
               </Stack>
 
               <Grid container spacing={1.2} marginTop={3}>
@@ -494,18 +563,16 @@ function App() {
                     variant="contained"
                     disableElevation
                     color="success"
-                    onClick={handleSearchButtonClick}
+                    onClick={() => {
+                      handleSearchButtonClick();
+                    }}
                     sx={{
                       color: "white",
                       textTransform: "none",
                       borderRadius: "13px",
                     }}
                   >
-                    <>
-                      {searchResults.length != visibleResults.length
-                        ? `Show ${searchResults.length} search results `
-                        : "Show All"}
-                    </>
+                    {`Show ${searchResults.length} search results `}
                   </Button>
                 </Grid>
               </Grid>
@@ -514,7 +581,7 @@ function App() {
         </Container>
 
         {visibleResults.length > 0 && (
-          <Container sx={{ py: 8 }} maxWidth="md">
+          <Container maxWidth="md" sx={{ mt: 6 }}>
             {/* End hero unit */}
 
             <Grid container spacing={3}>
@@ -551,160 +618,154 @@ function App() {
                   </Grid>
                 </Grid>
               </Grid>
-              <Grid item xs={12}>
-                <TransitionGroup>
-                  {visibleResults.map((car, index) => (
-                    <Fade key={car.index} mountOnEnter unmountOnExit>
-                      <Card
-                        sx={{
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          borderRadius: "15px",
-                          border: "2px solid green",
-                          boxShadow: "0px 0px 5px -1px rgba(25,189,0,0.56)",
-                          marginBottom: 2,
-                        }}
-                        raised
-                      >
-                        <CardContent sx={{ flexGrow: 1, paddingBottom: "5px" }}>
+              {visibleResults.map((car, index) => (
+                <Grid key={index} item xs={12} md={6} lg={6}>
+                  <Grow key={car.index} in={car != null} unmountOnExit>
+                    <Card
+                      sx={{
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        borderRadius: "15px",
+                        border: "2px solid green",
+                        boxShadow: "none",
+                        marginBottom: 2,
+                      }}
+                      raised
+                    >
+                      <CardContent sx={{ flexGrow: 1, paddingBottom: "5px" }}>
+                        <Typography
+                          mt="0"
+                          component="span"
+                          color="text.secondary"
+                        >
+                          {`${car.index}. ${car.year} - ${car.country}`}
+                        </Typography>
+                        <Typography variant="h5" marginBottom={1}>
+                          {`${car.make} - ${car.model}`}
+                        </Typography>
+
+                        <Stack
+                          marginY={2}
+                          direction={"row"}
+                          justifyContent={"space-between"}
+                        >
+                          <Typography variant="h6"> DougScore:</Typography>
                           <Typography
-                            mt="0"
                             component="span"
-                            color="text.secondary"
+                            variant="h5"
+                            sx={{ fontWeight: "bold" }}
                           >
-                            {`${car.index}. ${car.year} - ${car.country}`}
-                          </Typography>
-                          <Typography variant="h5" marginBottom={1}>
-                            {`${car.make} - ${car.model}`}
-                          </Typography>
-
-                          <Stack
-                            marginY={2}
-                            direction={"row"}
-                            justifyContent={"space-between"}
-                          >
-                            <Typography variant="h6"> DougScore:</Typography>
-                            <Typography
-                              component="span"
-                              variant="h5"
-                              sx={{ fontWeight: "bold" }}
-                            >
-                              {car.dougscore}{" "}
-                              <Typography lineHeight={0} variant="overline">
-                                {" "}
-                                /100
-                              </Typography>
-                            </Typography>
-                          </Stack>
-
-                          <Divider></Divider>
-                          <Grid container spacing={3}>
-                            <Grid item xs={6}>
+                            {car.dougscore}{" "}
+                            <Typography lineHeight={0} variant="overline">
                               {" "}
-                              <Stack
-                                color="green"
-                                marginTop={2}
-                                direction={"row"}
-                                justifyContent={"space-between"}
-                              >
-                                <Typography variant="body1">
-                                  {" "}
-                                  WEEKEND:
-                                </Typography>
-                                <Typography variant="body1">
-                                  {car.totalWeekend}{" "}
-                                  <Typography lineHeight={0} variant="overline">
-                                    {" "}
-                                    /50
-                                  </Typography>
-                                </Typography>
-                              </Stack>
-                              <Stack direction="column">
-                                <Score title="Styling" value={car.styling} />
-                                <Score
-                                  title="Acceleration"
-                                  value={car.acceleration}
-                                />
-                                <Score title="Handling" value={car.handling} />
-                                <Score
-                                  title="Fun Factor"
-                                  value={car.funFactor}
-                                />
-                                <Score
-                                  title="Cool Factor"
-                                  value={car.coolFactor}
-                                />
-                              </Stack>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Stack
-                                color="red"
-                                marginTop={2}
-                                direction={"row"}
-                                justifyContent={"space-between"}
-                              >
-                                <Typography variant="body1"> DAILY:</Typography>
-                                <Typography variant="body1">
-                                  {car.totalDaily}{" "}
-                                  <Typography lineHeight={0} variant="overline">
-                                    {" "}
-                                    /50
-                                  </Typography>
-                                </Typography>
-                              </Stack>
+                              /100
+                            </Typography>
+                          </Typography>
+                        </Stack>
 
-                              <Stack direction="column">
-                                <Score title="Features" value={car.features} />
-                                <Score title="comfort" value={car.comfort} />
-                                <Score title="quality" value={car.quality} />
-                                <Score
-                                  title="practicality"
-                                  value={car.practicality}
-                                />
-                                <Score title="value" value={car.value} />
-                              </Stack>
-                            </Grid>
-                          </Grid>
-                        </CardContent>
-                        <CardActions sx={{ paddingTop: "0px" }}>
-                          <Grid container>
-                            <Grid item xs={8}>
-                              <Typography
-                                variant="body2"
-                                paddingTop={1}
-                                paddingLeft={1}
-                                color="text.secondary"
-                              >
-                                {" "}
-                                Watch the review on youtube:
+                        <Divider></Divider>
+                        <Grid container spacing={3}>
+                          <Grid item xs={6}>
+                            {" "}
+                            <Stack
+                              color="green"
+                              marginTop={2}
+                              direction={"row"}
+                              justifyContent={"space-between"}
+                            >
+                              <Typography variant="body1"> WEEKEND:</Typography>
+                              <Typography variant="body1">
+                                {car.totalWeekend}{" "}
+                                <Typography lineHeight={0} variant="overline">
+                                  {" "}
+                                  /50
+                                </Typography>
                               </Typography>
-                            </Grid>
-                            <Grid item xs={4}>
-                              <Button
-                                startIcon={<YouTubeIcon />}
-                                fullWidth
-                                sx={{
-                                  color: "red",
-                                  textTransform: "none",
-                                  borderRadius: 0,
-                                }}
-                              >
-                                YouTube
-                              </Button>
-                            </Grid>
+                            </Stack>
+                            <Stack direction="column">
+                              <Score title="Styling" value={car.styling} />
+                              <Score
+                                title="Acceleration"
+                                value={car.acceleration}
+                              />
+                              <Score title="Handling" value={car.handling} />
+                              <Score title="Fun Factor" value={car.funFactor} />
+                              <Score
+                                title="Cool Factor"
+                                value={car.coolFactor}
+                              />
+                            </Stack>
                           </Grid>
-                        </CardActions>
-                      </Card>
-                    </Fade>
-                  ))}
-                </TransitionGroup>
-              </Grid>
+                          <Grid item xs={6}>
+                            <Stack
+                              color="red"
+                              marginTop={2}
+                              direction={"row"}
+                              justifyContent={"space-between"}
+                            >
+                              <Typography variant="body1"> DAILY:</Typography>
+                              <Typography variant="body1">
+                                {car.totalDaily}{" "}
+                                <Typography lineHeight={0} variant="overline">
+                                  {" "}
+                                  /50
+                                </Typography>
+                              </Typography>
+                            </Stack>
+
+                            <Stack direction="column">
+                              <Score title="Features" value={car.features} />
+                              <Score title="comfort" value={car.comfort} />
+                              <Score title="quality" value={car.quality} />
+                              <Score
+                                title="practicality"
+                                value={car.practicality}
+                              />
+                              <Score title="value" value={car.value} />
+                            </Stack>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                      <CardActions sx={{ paddingTop: "0px" }}>
+                        <Grid container>
+                          <Grid item xs={8}>
+                            <Typography
+                              variant="body2"
+                              paddingTop={1}
+                              paddingLeft={1}
+                              color="text.secondary"
+                            >
+                              {" "}
+                              Watch the review on youtube:
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={4}>
+                            <Button
+                              startIcon={<YouTubeIcon />}
+                              fullWidth
+                              sx={{
+                                color: "red",
+                                textTransform: "none",
+                                borderRadius: 0,
+                              }}
+                              href={`https://www.youtube.com/results?search_query=Doug+DeMuro+${car.year}+${car.make}+${car.model}`}
+                              target="_blank"
+                            >
+                              YouTube
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      </CardActions>
+                    </Card>
+                  </Grow>
+                </Grid>
+              ))}
 
               <Grid item xs={12}>
                 <Stack alignItems={"center"}>
                   <Pagination
-                    count={Math.ceil(searchResults.length / 10)}
+                    count={searchResultsNumber}
                     variant="outlined"
                     shape="rounded"
                     page={paginationPage}
@@ -719,18 +780,21 @@ function App() {
         )}
       </main>
       {/* Footer */}
-      <Box sx={{ bgcolor: "background.paper", p: 6, pt: 0 }} component="footer">
-        <Typography
-          variant="subtitle1"
-          align="center"
-          color="text.secondary"
-          component="p"
-        >
-          This is my first application build with ReactJS. The data used in this
-          application is publicly accessible and belongs to Doug Demuro. All
-          credit for his outstanding work goes to him.
-        </Typography>
-      </Box>
+      <Container maxWidth="md" sx={{ mt: 6, mb: 6 }}>
+        <Box sx={{ bgcolor: "background.paper", px: 6 }} component="footer">
+          <Typography
+            variant="subtitle1"
+            align="center"
+            color="text.secondary"
+            component="p"
+          >
+            This is my first application build with ReactJS. The data used in
+            this application is publicly accessible and belongs to Doug Demuro.
+            All credit for his outstanding work goes to him.
+          </Typography>
+        </Box>
+      </Container>
+
       {/* End footer */}
     </ThemeProvider>
   );
